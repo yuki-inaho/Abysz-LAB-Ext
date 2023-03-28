@@ -55,163 +55,148 @@ def main(
     ruta_salida_3,
     fps_count,
 ):
+    # Define the paths to the folders
     maskD = os.path.join(os.getcwd(), "extensions", "Abysz-LAB-Ext", "scripts", "Run", "MaskD")
     maskS = os.path.join(os.getcwd(), "extensions", "Abysz-LAB-Ext", "scripts", "Run", "MaskS")
-    # output = os.path.join(os.getcwd(), 'extensions', 'Abysz-LAB-Ext', 'scripts', 'Run', 'Output')
     source = os.path.join(os.getcwd(), "extensions", "Abysz-LAB-Ext", "scripts", "Run", "Source")
-    # gen = os.path.join(os.getcwd(), 'extensions', 'Abysz-LAB-Ext', 'scripts', 'Run', 'Gen')
 
-    # verificar si las carpetas existen y eliminarlas si es el caso
-    if os.path.exists(source):  # verificar si existe la carpeta source
-        shutil.rmtree(source)  # eliminar la carpeta source y su contenido
-    if os.path.exists(maskS):  # verificar si existe la carpeta maskS
-        shutil.rmtree(maskS)  # eliminar la carpeta maskS y su contenido
-    if os.path.exists(maskD):  # verificar si existe la carpeta maskS
-        shutil.rmtree(maskD)  # eliminar la carpeta maskS y su contenido
+    # Check if the folders exist and delete them if they do
+    folders_to_check = [source, maskS, maskD]
+    for folder in folders_to_check:
+        if os.path.exists(folder):
+            shutil.rmtree(folder)
 
-    os.makedirs(source, exist_ok=True)
-    os.makedirs(maskS, exist_ok=True)
-    os.makedirs(ruta_salida, exist_ok=True)
-    os.makedirs(maskD, exist_ok=True)
-    # os.makedirs(gen, exist_ok=True)
+    # Create the folders
+    folders_to_create = [source, maskS, ruta_salida, maskD]
+    for folder in folders_to_create:
+        os.makedirs(folder, exist_ok=True)
 
-    # Copy the images from Ruta1 to Source folder in JPEG quality 100
-    # for file in os.listdir(ruta_entrada_1):
-    #    if file.endswith(".jpg") or file.endswith(".jpeg") or file.endswith(".png"):
-    #        img = Image.open(os.path.join(ruta_entrada_1, file))
-    #        img.save(os.path.join("Source", file), "jpeg", quality=100)
-    def copy_images(ruta_entrada_1, ruta_entrada_2, frames_limit=0):
-        # Copiar todas las imágenes de la carpeta ruta_entrada_1 a la carpeta Source
-        count = 0
+    # Copy the images from the specified directory to the Source folder in JPEG quality 100
+    # @TODO: check "output_dir"
+    def copy_images(input_dir, output_dir, frames_limit=0):
+        count = 0  # initialize a counter to keep track of the number of images copied
 
-        archivos = os.listdir(ruta_entrada_1)
-        archivos_ordenados = sorted(archivos)
+        files = os.listdir(input_dir)
+        sorted_files = sorted(files)
 
-        for i, file in enumerate(archivos_ordenados):
+        # Loop through all the files in the input directory
+        for i, file in enumerate(sorted_files):
             if file.endswith(".jpg") or file.endswith(".jpeg") or file.endswith(".png"):
-                img = Image.open(os.path.join(ruta_entrada_1, file))
+                img = Image.open(os.path.join(input_dir, file))
                 rgb_img = img.convert("RGB")
                 rgb_img.save(os.path.join("./extensions/Abysz-LAB-Ext/scripts/Run/Source", "{:04d}.jpeg".format(i + 1)), "jpeg", quality=100)
                 count += 1
-                if frames_limit > 0 and count >= frames_limit:
-                    break
+            if frames_limit > 0 and count >= frames_limit:
+                break
 
-    # Llamar a la función copy_images para copiar las imágenes
+    # Call the function copy_images to copy the images
     copy_images(ruta_entrada_1, ruta_salida, frames_limit)
 
-    # for file in os.listdir(ruta_entrada_2):
-    #    if file.endswith(".jpg") or file.endswith(".jpeg") or file.endswith(".png"):
-    #        img = Image.open(os.path.join(ruta_entrada_2, file))
-    #        img.save(os.path.join(ruta_entrada_2, file))
-    #
-    # Carpeta donde se encuentran las imágenes de Gen
-    def sresize(ruta_entrada_2):
-        gen_folder = ruta_entrada_2
+    # Folder where the images from Gen are located
+    def sresize(gen_folder_path):
+        """Resize images in the FULL folder to match the resolution of the Gen image."""
 
-        # Carpeta donde se encuentran las imágenes de FULL
+        # Folder where the images from Gen are located
+        gen_folder = gen_folder_path
+
+        # Folder where the FULL images are located
         full_folder = "./extensions/Abysz-LAB-Ext/scripts/Run/Source"
 
-        # Obtener la primera imagen en la carpeta Gen
+        # Get the aspect ratio of the Gen image
         gen_images = os.listdir(gen_folder)
         gen_image_path = os.path.join(gen_folder, gen_images[0])
         gen_image = cv2.imread(gen_image_path)
         gen_height, gen_width = gen_image.shape[:2]
         gen_aspect_ratio = gen_width / gen_height
 
-        # Recorrer todas las imágenes en la carpeta FULL
+        # Loop through all the images in the FULL folder
         for image_name in sorted(os.listdir(full_folder)):
             image_path = os.path.join(full_folder, image_name)
             image = cv2.imread(image_path)
             height, width = image.shape[:2]
             aspect_ratio = width / height
 
+            # Crop or pad the FULL image to match the aspect ratio of the Gen image
             if aspect_ratio != gen_aspect_ratio:
                 if aspect_ratio > gen_aspect_ratio:
-                    # La imagen es más ancha que la imagen de Gen
+                    # The image is wider than the Gen image
                     crop_width = int(height * gen_aspect_ratio)
                     x = int((width - crop_width) / 2)
                     image = image[:, x : x + crop_width]
                 else:
-                    # La imagen es más alta que la imagen de Gen
+                    # The image is taller than the Gen image
                     crop_height = int(width / gen_aspect_ratio)
                     y = int((height - crop_height) / 2)
                     image = image[y : y + crop_height, :]
 
-            # Redimensionar la imagen de FULL a la resolución de la imagen de Gen
+            # Resize the FULL image to match the resolution of the Gen image
             image = cv2.resize(image, (gen_width, gen_height))
 
-            # Guardar la imagen redimensionada en la carpeta FULL
+            # Save the resized image in the FULL folder
             cv2.imwrite(os.path.join(full_folder, image_name), image)
 
+    # Call the sresize function to resize the FULL images
     sresize(ruta_entrada_2)
 
     def s_g_rename(ruta_entrada_2):
-        gen_dir = ruta_entrada_2  # ruta de la carpeta "Source"
+        # Set path of the "Source" folder
+        gen_dir = ruta_entrada_2
 
-        # Obtener una lista de los nombres de archivo en la carpeta ruta_entrada_2
-        files2 = os.listdir(gen_dir)
-        files2 = sorted(files2)  # ordenar alfabéticamente la lista
-        # Renombrar cada archivo
+        # Get a list of file names in the "Source" folder and sort it alphabetically
+        files2 = sorted(os.listdir(gen_dir))
+
+        # Rename each file with a suffix "rename"
         for i, file_name in enumerate(files2):
-            old_path = os.path.join(gen_dir, file_name)  # ruta actual del archivo
-            new_file_name = f"{i+1:04d}rename"  # nuevo nombre de archivo con formato %04d
-            new_path = os.path.join(gen_dir, new_file_name + os.path.splitext(file_name)[1])  # nueva ruta del archivo
+            old_path = os.path.join(gen_dir, file_name)
+            new_file_name = f"{i+1:04d}rename"
+            new_path = os.path.join(gen_dir, new_file_name + os.path.splitext(file_name)[1])
             try:
                 os.rename(old_path, new_path)
             except FileExistsError:
-                print(f"El archivo {new_file_name} ya existe. Se omite su renombre.")
+                print(f"The file {new_file_name} already exists. Rename is skipped.")
 
-        # Obtener una lista de los nombres de archivo en la carpeta ruta_entrada_2
-        files2 = os.listdir(gen_dir)
-        files2 = sorted(files2)  # ordenar alfabéticamente la lista
-        # Renombrar cada archivo
+        # Get a list of file names in the "Source" folder again
+        files2 = sorted(os.listdir(gen_dir))
+
+        # Remove the "rename" suffix from the file names
         for i, file_name in enumerate(files2):
-            old_path = os.path.join(gen_dir, file_name)  # ruta actual del archivo
-            new_file_name = f"{i+1:04d}"  # nuevo nombre de archivo con formato %04d
-            new_path = os.path.join(gen_dir, new_file_name + os.path.splitext(file_name)[1])  # nueva ruta del archivo
+            old_path = os.path.join(gen_dir, file_name)
+            new_file_name = f"{i+1:04d}"
+            new_path = os.path.join(gen_dir, new_file_name + os.path.splitext(file_name)[1])
             try:
                 os.rename(old_path, new_path)
             except FileExistsError:
-                print(f"El archivo {new_file_name} ya existe. Se omite su renombre.")
+                print(f"The file {new_file_name} already exists. Rename is skipped.")
 
     s_g_rename(ruta_entrada_2)
 
-    # Obtener el primer archivo de la carpeta ruta_entrada_2
+    # Get the first file in the ruta_entrada_2 folder
     gen_files = os.listdir(ruta_entrada_2)
     if gen_files:
         first_gen_file = gen_files[0]
 
-        # Copiar el archivo a la carpeta "Output" y reemplazar si ya existe
-        # output_file = "Output" + first_gen_file
-        # shutil.copyfile(ruta_entrada_2 + first_gen_file, output_file)
+        # Copy the file to the "Output" folder and replace if it already exists
         output_file = os.path.join(ruta_salida, first_gen_file)
         shutil.copyfile(os.path.join(ruta_entrada_2, first_gen_file), output_file)
 
-    # subprocess call
+    # Subprocess call
     def denoise(denoise_blur):
-        if denoise_blur < 1:  # Condición 1: strength debe ser mayor a 1
+        if denoise_blur < 1:  # Condition 1: strength must be greater than 1
             return
 
         denoise_kernel = denoise_blur
-        # Obtener la lista de nombres de archivos en la carpeta source
+        # Get the list of file names in the Source folder
         files = os.listdir("./extensions/Abysz-LAB-Ext/scripts/Run/Source")
 
-        # Crear una carpeta destino si no existe
-        # if not os.path.exists("dest"):
-        #   os.mkdir("dest")
-
-        # Recorrer cada archivo en la carpeta source
+        # Loop through each file in the Source folder
         for file in files:
-            # Leer la imagen con opencv
+            # Read the image with OpenCV
             img = cv2.imread(os.path.join("./extensions/Abysz-LAB-Ext/scripts/Run/Source", file))
 
-            # Aplicar el filtro de blur con un tamaño de kernel 5x5
+            # Apply the blur filter with a 5x5 kernel size
             dst = cv2.bilateralFilter(img, denoise_kernel, 31, 31)
 
-            # Eliminar el archivo original
-            # os.remove(os.path.join("SourceDFI", file))
-
-            # Guardar la imagen resultante en la carpeta destino con el mismo nombre
+            # Save the resulting image in the Source folder with the same name
             cv2.imwrite(os.path.join("./extensions/Abysz-LAB-Ext/scripts/Run/Source", file), dst)
 
     denoise(denoise_blur)
